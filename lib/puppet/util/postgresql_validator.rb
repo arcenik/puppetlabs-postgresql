@@ -10,7 +10,7 @@ module Puppet::Util
     end
 
     def build_psql_cmd
-      cmd = [@resource[:psql_path], '--tuples-only', '--quiet', '--no-psqlrc']
+      cmd = [@resource[:psql_path], '--tuples-only', '--quiet', '--no-psqlrc', '--no-align']
 
       args = {
         host: '--host',
@@ -40,13 +40,15 @@ module Puppet::Util
       (0..tries - 1).each do |_try|
         Puppet.debug "PostgresqlValidator.attempt_connection: Attempting connection to #{@resource[:db_name]}"
         cmd = build_psql_cmd
-        Puppet.debug "PostgresqlValidator.attempt_connection: #{cmd.inspect}"
+        Puppet.debug "PostgresqlValidator.attempt_connection: #{cmd.inspect} with settings #{connect_settings.to_s}"
         result = Execution.execute(cmd, custom_environment: connect_settings, uid: @resource[:run_as])
 
         if result && !result.empty?
           Puppet.debug "PostgresqlValidator.attempt_connection: Connection to #{@resource[:db_name] || connect_settings.select { |elem| elem.include?('PGDATABASE') }} successful!"
           return true
         else
+          result = Execution.execute(cmd, custom_environment: connect_settings, uid: @resource[:run_as], combine: true)
+          Puppet.warning "PostgresqlValidator.attempt_connection: #{result}"
           Puppet.warning "PostgresqlValidator.attempt_connection: Sleeping for #{sleep_length} seconds"
           sleep sleep_length
         end
